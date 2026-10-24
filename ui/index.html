@@ -124,45 +124,57 @@
       <button id="btn-export" class="secondary">导出备份</button>
     </div>
 
-    <!-- OAuth panel -->
-    <div class="panel" id="oauth-panel" hidden>
-      <h2>OAuth 登录（WorkBuddy 插件授权）</h2>
-      <div class="row">
-        <span class="label" style="margin:0">站点：</span>
-        <select id="oauth-site">
-          <option value="global">国际版（workbuddy.ai）</option>
-          <option value="domestic">国内版（workbuddy.cn）</option>
-        </select>
-        <button id="oauth-start">生成登录链接</button>
-        <button id="oauth-copy" class="secondary" hidden>复制链接</button>
-        <button id="oauth-cancel" class="secondary" hidden>取消</button>
+    <!-- OAuth overlay -->
+    <div class="overlay" id="oauth-overlay" hidden>
+      <div class="backdrop" id="oauth-backdrop"></div>
+      <div class="modal">
+        <h2>OAuth 登录（WorkBuddy 插件授权）</h2>
+        <div class="row" style="margin-top:0">
+          <span class="label" style="margin:0">站点：</span>
+          <select id="oauth-site">
+            <option value="global">国际版（workbuddy.ai）</option>
+            <option value="domestic">国内版（workbuddy.cn）</option>
+          </select>
+          <button id="oauth-start">生成登录链接</button>
+          <button id="oauth-copy" class="secondary" hidden>复制链接</button>
+          <button id="oauth-cancel" class="secondary" hidden>取消</button>
+        </div>
+        <div id="oauth-url-wrap" hidden>
+          <div class="label">登录链接（浏览器用的是它当前登录的 WorkBuddy 账号；如需换号，请先在浏览器里退出或使用无痕窗口）：</div>
+          <div class="auth-url" id="oauth-url" title="点击复制"></div>
+          <div class="label">链接不会自动打开：复制到本机或另一台机器的浏览器中打开并登录，本页面会自动轮询到结果。</div>
+        </div>
+        <div class="msg" id="oauth-msg"></div>
+        <div class="modal-foot">
+          <button class="secondary" id="oauth-close">关闭</button>
+        </div>
       </div>
-      <div id="oauth-url-wrap" hidden>
-        <div class="label">登录链接（浏览器用的是它当前登录的 WorkBuddy 账号；如需换号，请先在浏览器里退出或使用无痕窗口）：</div>
-        <div class="auth-url" id="oauth-url" title="点击复制"></div>
-        <div class="label">链接不会自动打开：复制到本机或另一台机器的浏览器中打开并登录，本页面会自动轮询到结果。</div>
-      </div>
-      <div class="msg" id="oauth-msg"></div>
     </div>
 
-    <!-- refresh token import panel -->
-    <div class="panel" id="rtoken-panel" hidden>
-      <h2>导入 refresh token</h2>
-      <div class="row">
-        <span class="label" style="margin:0">站点：</span>
-        <select id="rtoken-site">
-          <option value="global">国际版（workbuddy.ai）</option>
-          <option value="domestic">国内版（workbuddy.cn）</option>
-        </select>
-        <input type="text" id="rtoken-label" placeholder="备注名（可选，如邮箱）" style="flex:1; min-width:200px" />
-      </div>
-      <div class="label">refresh token（必填）</div>
-      <textarea id="rtoken-value" rows="3" placeholder="粘贴 refresh token"></textarea>
-      <div class="label">access token（可选，若是 JWT 可自动识别邮箱与过期时间）</div>
-      <textarea id="rtoken-access" rows="2" placeholder="粘贴 access token（可留空）"></textarea>
-      <div class="row">
-        <button id="rtoken-save">导入</button>
-        <span class="msg" id="rtoken-msg" style="margin:0"></span>
+    <!-- refresh token import overlay -->
+    <div class="overlay" id="rtoken-overlay" hidden>
+      <div class="backdrop" id="rtoken-backdrop"></div>
+      <div class="modal" style="width:min(560px, calc(100vw - 48px))">
+        <h2>导入 refresh token</h2>
+        <div class="row" style="margin-top:0">
+          <span class="label" style="margin:0">站点：</span>
+          <select id="rtoken-site">
+            <option value="global">国际版（workbuddy.ai）</option>
+            <option value="domestic">国内版（workbuddy.cn）</option>
+          </select>
+          <input type="text" id="rtoken-label" placeholder="备注名（可选，如邮箱）" style="flex:1; min-width:200px" />
+        </div>
+        <div class="label">refresh token（必填）</div>
+        <textarea id="rtoken-value" rows="3" placeholder="粘贴 refresh token"></textarea>
+        <div class="label">access token（可选，若是 JWT 可自动识别邮箱与过期时间）</div>
+        <textarea id="rtoken-access" rows="2" placeholder="粘贴 access token（可留空）"></textarea>
+        <div class="row">
+          <button id="rtoken-save">导入</button>
+          <span class="msg" id="rtoken-msg" style="margin:0"></span>
+        </div>
+        <div class="modal-foot">
+          <button class="secondary" id="rtoken-close">关闭</button>
+        </div>
       </div>
     </div>
 
@@ -467,14 +479,12 @@
     }
 
     // ── OAuth ────────────────────────────────────────────────────────────
-    $('btn-oauth').onclick = () => {
-      $('oauth-panel').hidden = !$('oauth-panel').hidden;
-      $('rtoken-panel').hidden = true;
-    };
-    $('btn-rtoken').onclick = () => {
-      $('rtoken-panel').hidden = !$('rtoken-panel').hidden;
-      $('oauth-panel').hidden = true;
-    };
+    $('btn-oauth').onclick = () => { $('oauth-overlay').hidden = false; };
+    $('oauth-close').onclick = () => { $('oauth-overlay').hidden = true; };
+    $('oauth-backdrop').onclick = () => { $('oauth-overlay').hidden = true; };
+    $('btn-rtoken').onclick = () => { $('rtoken-overlay').hidden = false; };
+    $('rtoken-close').onclick = () => { $('rtoken-overlay').hidden = true; };
+    $('rtoken-backdrop').onclick = () => { $('rtoken-overlay').hidden = true; };
 
     $('oauth-start').onclick = async () => {
       stopPolling();
