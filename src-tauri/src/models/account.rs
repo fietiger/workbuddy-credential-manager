@@ -399,7 +399,7 @@ mod tests {
     }
 
     #[test]
-    fn site_from_domain() {
+    fn site_detection_by_domain() {
         assert_eq!(site_from_domain("www.codebuddy.cn"), Site::Domestic);
         assert_eq!(site_from_domain("www.workbuddy.cn"), Site::Domestic);
         assert_eq!(site_from_domain("www.workbuddy.ai"), Site::Global);

@@ -107,7 +107,11 @@ pub fn delete_account(id: String) -> AppResult<()> {
 pub fn update_account_notes(id: String, notes: String) -> AppResult<AccountView> {
     let mut acc = account_store::get_account(&id)?;
     let trimmed = notes.trim().to_string();
-    acc.notes = if trimmed.is_empty() { None } else { Some(trimmed) };
+    acc.notes = if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
+    };
     account_store::save_account(&acc)?;
     Ok(AccountView::from(&acc))
 }
@@ -129,7 +133,11 @@ pub async fn refresh_account(id: String) -> AppResult<AccountView> {
 
     let client = wb_auth::AuthClient::new()?;
     let tokens = client
-        .refresh(acc.site, acc.access_token.plaintext().unwrap_or(""), &refresh)
+        .refresh(
+            acc.site,
+            acc.access_token.plaintext().unwrap_or(""),
+            &refresh,
+        )
         .await?;
     let expires_at_ms = if tokens.expires_in > 0 {
         chrono::Utc::now().timestamp_millis() + tokens.expires_in * 1000
@@ -168,7 +176,14 @@ pub async fn activate_account(id: String, target: ClientKind) -> AppResult<Clien
             .filter(|s| !s.is_empty())
         {
             logger::log_info("cmd", "Access token expired, refreshing before switch");
-            match wb_auth::AuthClient::new()?.refresh(acc.site, acc.access_token.plaintext().unwrap_or(""), &refresh).await {
+            match wb_auth::AuthClient::new()?
+                .refresh(
+                    acc.site,
+                    acc.access_token.plaintext().unwrap_or(""),
+                    &refresh,
+                )
+                .await
+            {
                 Ok(tokens) => {
                     let expires_at_ms = if tokens.expires_in > 0 {
                         chrono::Utc::now().timestamp_millis() + tokens.expires_in * 1000
@@ -206,17 +221,18 @@ pub async fn activate_account(id: String, target: ClientKind) -> AppResult<Clien
 #[tauri::command]
 pub fn list_clients() -> AppResult<Vec<ClientStatus>> {
     let mut out = Vec::new();
-    for kind in [ClientKind::DesktopCn, ClientKind::DesktopAi, ClientKind::Cli] {
+    for kind in [
+        ClientKind::DesktopCn,
+        ClientKind::DesktopAi,
+        ClientKind::Cli,
+    ] {
         let path = client_sync::client_file_path(kind);
         let installed = match &path {
             Some(p) => match kind {
                 ClientKind::Cli => p.is_file(),
                 // the auth folder must exist; the live file may be absent
                 // when the client is installed but signed out
-                _ => p
-                    .parent()
-                    .map(|d| d.is_dir())
-                    .unwrap_or(false),
+                _ => p.parent().map(|d| d.is_dir()).unwrap_or(false),
             },
             None => false,
         };
@@ -252,7 +268,11 @@ pub async fn oauth_start(site: Site) -> AppResult<AuthSession> {
     let session = wb_auth::AuthClient::new()?.start(site).await?;
     logger::log_info(
         "oauth",
-        &format!("OAuth session started for {} ({})", site.name(), session.state),
+        &format!(
+            "OAuth session started for {} ({})",
+            site.name(),
+            session.state
+        ),
     );
     sessions()
         .lock()

@@ -219,8 +219,8 @@ fn upsert_candidate(c: Candidate) -> Result<Outcome, String> {
 
     match existing {
         Some(existing) => {
-            let newer =
-                exp > existing.expires_at_ms || (existing.refresh_token.is_encrypted() && new_plain);
+            let newer = exp > existing.expires_at_ms
+                || (existing.refresh_token.is_encrypted() && new_plain);
             if newer {
                 let mut merged = c.account;
                 merged.id = existing.id.clone();
@@ -265,7 +265,11 @@ fn scan_desktop() -> AppResult<Vec<Candidate>> {
         .flatten()
         .map(|e| e.path())
         .filter(|p| {
-            let name = p.file_name().unwrap_or_default().to_string_lossy().to_string();
+            let name = p
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
             name.starts_with("workbuddy-desktop")
                 && name.ends_with(".info")
                 && !name.contains(".wcm-tmp-")
@@ -328,9 +332,7 @@ fn scan_desktop() -> AppResult<Vec<Candidate>> {
         let refresh = credential_value(&parsed.auth, "refreshToken");
 
         // Display name: nickname (plaintext) → phone → JWT email → uid prefix.
-        let jwt = access
-            .plaintext()
-            .and_then(decode_jwt_claims);
+        let jwt = access.plaintext().and_then(decode_jwt_claims);
         let display = plaintext_nickname(&parsed.account)
             .or_else(|| str_field(&parsed.account, "phoneNumber"))
             .or_else(|| jwt.as_ref().and_then(|c| c.email.clone()))
@@ -340,7 +342,8 @@ fn scan_desktop() -> AppResult<Vec<Candidate>> {
         account.uid = Some(uid);
         account.email = jwt.as_ref().and_then(|c| c.email.clone());
         account.phone = str_field(&parsed.account, "phoneNumber");
-        account.token_type = str_field(&parsed.auth, "tokenType").unwrap_or_else(|| "Bearer".into());
+        account.token_type =
+            str_field(&parsed.auth, "tokenType").unwrap_or_else(|| "Bearer".into());
         account.expires_in = parsed
             .auth
             .get("expiresIn")

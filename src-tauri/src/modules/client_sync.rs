@@ -32,14 +32,6 @@ impl ClientKind {
             ClientKind::Cli => "CodeBuddy CLI",
         }
     }
-
-    pub fn short_name(&self) -> &'static str {
-        match self {
-            ClientKind::DesktopCn => "WB 桌面端",
-            ClientKind::DesktopAi => "WB AI 桌面端",
-            ClientKind::Cli => "CB CLI",
-        }
-    }
 }
 
 /// What the UI learns about one client's install and login state.
@@ -107,8 +99,6 @@ pub fn client_file_path(kind: ClientKind) -> Option<PathBuf> {
 pub struct DesktopAuthFile {
     pub account: Value,
     pub auth: Value,
-    /// Everything else in the file, preserved verbatim on switch.
-    pub extra: serde_json::Map<String, Value>,
 }
 
 pub fn parse_desktop_auth_file(doc: &Value) -> Option<DesktopAuthFile> {
@@ -118,14 +108,7 @@ pub fn parse_desktop_auth_file(doc: &Value) -> Option<DesktopAuthFile> {
     if !account.is_object() || !auth.is_object() {
         return None;
     }
-    let mut extra = obj.clone();
-    extra.remove("account");
-    extra.remove("auth");
-    Some(DesktopAuthFile {
-        account,
-        auth,
-        extra,
-    })
+    Some(DesktopAuthFile { account, auth })
 }
 
 fn json_str(v: &Value, key: &str) -> Option<String> {
@@ -204,10 +187,7 @@ fn read_current_desktop(_kind: ClientKind, raw: &str) -> Option<CurrentAccountIn
         phone,
         domain,
         site,
-        expires_at_ms: auth
-            .get("expiresAt")
-            .and_then(|e| e.as_i64())
-            .unwrap_or(0),
+        expires_at_ms: auth.get("expiresAt").and_then(|e| e.as_i64()).unwrap_or(0),
         encrypted,
     })
 }
@@ -228,8 +208,10 @@ fn read_current_cli(raw: &str) -> Option<CurrentAccountInfo> {
     }
 
     let claims = crate::modules::wb_auth::decode_jwt_claims(&token);
-    let endpoint = json_str(&doc, "endpoint")
-        .or_else(|| doc.get("env").and_then(|env| json_str(env, "CODEBUDDY_BASE_URL")));
+    let endpoint = json_str(&doc, "endpoint").or_else(|| {
+        doc.get("env")
+            .and_then(|env| json_str(env, "CODEBUDDY_BASE_URL"))
+    });
     let display = claims
         .as_ref()
         .and_then(|c| c.email.clone())
@@ -237,7 +219,10 @@ fn read_current_cli(raw: &str) -> Option<CurrentAccountInfo> {
         .unwrap_or_else(|| "CLI 登录账号".to_string());
 
     Some(CurrentAccountInfo {
-        uid: claims.as_ref().and_then(|c| c.sub.clone()).unwrap_or_default(),
+        uid: claims
+            .as_ref()
+            .and_then(|c| c.sub.clone())
+            .unwrap_or_default(),
         display,
         phone: None,
         domain: endpoint.clone(),
@@ -289,8 +274,7 @@ fn switch_inner(kind: ClientKind, account: &Account) -> AppResult<String> {
     parts.push(result);
     if client_process_running() {
         parts.push(
-            "检测到 WorkBuddy 客户端正在运行：若界面未生效请先完全退出客户端再重试"
-                .to_string(),
+            "检测到 WorkBuddy 客户端正在运行：若界面未生效请先完全退出客户端再重试".to_string(),
         );
     }
     Ok(parts.join("；"))
@@ -322,14 +306,15 @@ pub fn desktop_payload(account: &Account, target: ClientKind) -> (Value, Value) 
     } else {
         0
     };
-    let domain = account
-        .domain
-        .clone()
-        .unwrap_or_else(|| match target {
-            ClientKind::DesktopCn => "www.codebuddy.cn".to_string(),
-            ClientKind::DesktopAi => "www.workbuddy.ai".to_string(),
-            ClientKind::Cli => account.site.portal().trim_start_matches("https://").to_string(),
-        });
+    let domain = account.domain.clone().unwrap_or_else(|| match target {
+        ClientKind::DesktopCn => "www.codebuddy.cn".to_string(),
+        ClientKind::DesktopAi => "www.workbuddy.ai".to_string(),
+        ClientKind::Cli => account
+            .site
+            .portal()
+            .trim_start_matches("https://")
+            .to_string(),
+    });
 
     let mut acc = serde_json::json!({
         "uid": account.uid.clone().unwrap_or_default(),
@@ -431,8 +416,8 @@ fn switch_desktop(kind: ClientKind, account: &Account) -> AppResult<String> {
 fn verify_desktop_write(path: &std::path::Path, acc: &Value, auth: &Value) -> AppResult<()> {
     let raw = std::fs::read_to_string(path)?;
     let doc: Value = serde_json::from_str(&raw)?;
-    let parsed =
-        parse_desktop_auth_file(&doc).ok_or_else(|| AppError::Other("回读校验失败：文件结构缺失".into()))?;
+    let parsed = parse_desktop_auth_file(&doc)
+        .ok_or_else(|| AppError::Other("回读校验失败：文件结构缺失".into()))?;
     if parsed.account != *acc {
         return Err(AppError::Other(
             "回读校验失败：account 内容与写入不一致（客户端可能正在运行并回写）".into(),
@@ -474,7 +459,9 @@ fn switch_cli(account: &Account) -> AppResult<String> {
     let mut doc: Value = serde_json::from_str(&raw)?;
 
     // Back up before touching anything.
-    let parent = path.parent().ok_or_else(|| AppError::Other("no parent".into()))?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| AppError::Other("no parent".into()))?;
     let backup = parent.join(format!(
         "settings.json.wcm-bak-{}",
         chrono::Utc::now().format("%Y%m%d-%H%M%S")
@@ -503,7 +490,10 @@ fn switch_cli(account: &Account) -> AppResult<String> {
         ));
     }
 
-    Ok(format!("已写入 {}（写入前已备份，回读校验通过）", path.display()))
+    Ok(format!(
+        "已写入 {}（写入前已备份，回读校验通过）",
+        path.display()
+    ))
 }
 
 /// Merge an account's CLI login fields into a settings.json document.
@@ -514,9 +504,7 @@ pub fn apply_cli_snapshot(doc: &mut Value, account: &Account) {
     };
 
     let (endpoint, base_url) = cli_endpoints(account.site);
-    let env = obj
-        .entry("env")
-        .or_insert_with(|| serde_json::json!({}));
+    let env = obj.entry("env").or_insert_with(|| serde_json::json!({}));
     if let Some(env_obj) = env.as_object_mut() {
         let token = account
             .cli_snapshot
@@ -547,7 +535,11 @@ pub fn apply_cli_snapshot(doc: &mut Value, account: &Account) {
         .unwrap_or(endpoint);
     obj.insert("endpoint".into(), Value::from(endpoint));
 
-    match account.cli_snapshot.as_ref().and_then(|s| s.gateway.clone()) {
+    match account
+        .cli_snapshot
+        .as_ref()
+        .and_then(|s| s.gateway.clone())
+    {
         Some(gw) => {
             obj.insert("gateway".into(), gw);
         }
@@ -566,10 +558,7 @@ pub fn apply_cli_snapshot(doc: &mut Value, account: &Account) {
 /// truncated auth file behind. `std::fs::rename` replaces the destination on
 /// Windows (MoveFileExW / MOVEFILE_REPLACE_EXISTING).
 pub fn write_atomic(path: &std::path::Path, doc: &Value) -> AppResult<()> {
-    let tmp = path.with_extension(format!(
-        "wcm-tmp-{}",
-        chrono::Utc::now().timestamp_millis()
-    ));
+    let tmp = path.with_extension(format!("wcm-tmp-{}", chrono::Utc::now().timestamp_millis()));
     std::fs::write(&tmp, serde_json::to_string_pretty(doc)?)?;
     match std::fs::rename(&tmp, path) {
         Ok(()) => Ok(()),
@@ -619,7 +608,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_and_preserve_extra_keys() {
+    fn parse_validates_structure() {
         let doc = json!({
             "account": {"uid": "u1"},
             "auth": {"accessToken": "a"},
@@ -627,17 +616,22 @@ mod tests {
             "allAccounts": []
         });
         let parsed = parse_desktop_auth_file(&doc).unwrap();
-        assert_eq!(parsed.extra.len(), 2);
-        assert!(parsed.extra.contains_key("accounts"));
+        assert_eq!(parsed.account["uid"], "u1");
+        assert_eq!(parsed.auth["accessToken"], "a");
 
         assert!(parse_desktop_auth_file(&json!({"account": {}})).is_none());
+        assert!(parse_desktop_auth_file(&json!({"auth": {}})).is_none());
+        assert!(parse_desktop_auth_file(&json!({"account": {}, "auth": "str"})).is_none());
     }
 
     #[test]
     fn display_falls_back_through_fields() {
         assert_eq!(display_of_account(&json!({"nickname": "nick"})), "nick");
         assert_eq!(display_of_account(&json!({"phoneNumber": "138*"})), "138*");
-        assert_eq!(display_of_account(&json!({"uin": "123", "uid": "abcd1234-xx"})), "123");
+        assert_eq!(
+            display_of_account(&json!({"uin": "123", "uid": "abcd1234-xx"})),
+            "123"
+        );
         assert_eq!(
             display_of_account(&json!({"uid": "abcd1234-5678"})),
             "uid-abcd1234"
@@ -710,7 +704,10 @@ mod tests {
         assert_eq!(doc["env"]["CODEBUDDY_AUTH_TOKEN"], "access.jwt.token");
         assert_eq!(doc["env"]["OTHER"], "keep");
         assert_eq!(doc["endpoint"], "https://www.workbuddy.ai");
-        assert_eq!(doc["env"]["CODEBUDDY_BASE_URL"], "https://www.codebuddy.ai/v2");
+        assert_eq!(
+            doc["env"]["CODEBUDDY_BASE_URL"],
+            "https://www.codebuddy.ai/v2"
+        );
         assert_eq!(doc["env"]["CODEBUDDY_INTERNET_ENVIRONMENT"], "public");
         // OAuth account never logged the CLI in itself: password must go
         assert!(doc.get("gateway").is_none());
@@ -741,8 +738,7 @@ mod tests {
 
         write_atomic(&path, &json!({"account": {"uid": "a"}})).unwrap();
         write_atomic(&path, &json!({"account": {"uid": "b"}})).unwrap();
-        let doc: Value =
-            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        let doc: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(doc["account"]["uid"], "b");
         std::fs::remove_dir_all(&dir).unwrap();
     }

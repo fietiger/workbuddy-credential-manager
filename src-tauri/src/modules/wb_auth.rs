@@ -9,7 +9,7 @@
 //! rejected, the request must carry the CLI form `CLI/<ver> CodeBuddy/<ver>`.
 
 use crate::error::{AppError, AppResult};
-use crate::models::account::{site_from_domain, Site};
+use crate::models::account::Site;
 use base64::Engine;
 use serde::Serialize;
 
@@ -42,7 +42,6 @@ pub struct TokenSet {
     pub refresh_token: String,
     pub token_type: String,
     pub expires_in: i64,
-    pub refresh_expires_in: i64,
     pub session_state: String,
     pub scope: String,
     pub domain: String,
@@ -80,10 +79,9 @@ impl AuthClient {
             .map_err(|e| AppError::Http(format!("auth state request failed: {}", e)))?;
 
         let status = resp.status();
-        let payload: serde_json::Value = resp
-            .json()
-            .await
-            .map_err(|e| AppError::Http(format!("auth state response not JSON ({}): {}", status, e)))?;
+        let payload: serde_json::Value = resp.json().await.map_err(|e| {
+            AppError::Http(format!("auth state response not JSON ({}): {}", status, e))
+        })?;
 
         if payload.get("code").and_then(|c| c.as_i64()) != Some(0) {
             let msg = payload
@@ -226,10 +224,12 @@ impl AuthClient {
             .map_err(|e| AppError::Http(format!("token refresh failed: {}", e)))?;
 
         let status = resp.status();
-        let payload: serde_json::Value = resp
-            .json()
-            .await
-            .map_err(|e| AppError::Http(format!("token refresh response not JSON ({}): {}", status, e)))?;
+        let payload: serde_json::Value = resp.json().await.map_err(|e| {
+            AppError::Http(format!(
+                "token refresh response not JSON ({}): {}",
+                status, e
+            ))
+        })?;
 
         let tokens = extract_token_set(&payload);
         let ok = (200..300).contains(&status.as_u16());
@@ -273,7 +273,7 @@ fn hex_id(len: usize) -> String {
 }
 
 fn first_str(values: &[Option<&serde_json::Value>], fallback: &str) -> String {
-    for v in values.into_iter().flatten() {
+    for v in values.iter().flatten() {
         if let Some(s) = v.as_str() {
             if !s.is_empty() {
                 return s.to_string();
@@ -326,7 +326,6 @@ pub fn extract_token_set(payload: &serde_json::Value) -> Option<TokenSet> {
             refresh_token: refresh,
             token_type,
             expires_in: int_of(c, &["expiresIn", "expires_in"]),
-            refresh_expires_in: int_of(c, &["refreshExpiresIn", "refresh_expires_in"]),
             session_state: string_of(c, &["sessionState", "session_state"]).unwrap_or_default(),
             scope: string_of(c, &["scope"]).unwrap_or_default(),
             domain: string_of(c, &["domain"]).unwrap_or_default(),
@@ -355,7 +354,6 @@ fn int_of(v: &serde_json::Value, keys: &[&str]) -> i64 {
 pub struct JwtClaims {
     pub email: Option<String>,
     pub preferred_username: Option<String>,
-    pub phone: Option<String>,
     pub sub: Option<String>,
     /// Expiry in unix **milliseconds**.
     pub exp_ms: i64,
@@ -376,9 +374,7 @@ pub fn decode_jwt_claims(token: &str) -> Option<JwtClaims> {
     let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(p)
         .ok()
-        .or_else(|| {
-            base64::engine::general_purpose::URL_SAFE.decode(p).ok()
-        })?;
+        .or_else(|| base64::engine::general_purpose::URL_SAFE.decode(p).ok())?;
     let payload: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
 
     let exp_s = payload.get("exp").and_then(|e| e.as_i64()).unwrap_or(0);
@@ -390,11 +386,6 @@ pub fn decode_jwt_claims(token: &str) -> Option<JwtClaims> {
             .filter(|s| !s.is_empty()),
         preferred_username: payload
             .get("preferred_username")
-            .and_then(|e| e.as_str())
-            .map(|s| s.to_string())
-            .filter(|s| !s.is_empty()),
-        phone: payload
-            .get("phone_number")
             .and_then(|e| e.as_str())
             .map(|s| s.to_string())
             .filter(|s| !s.is_empty()),
@@ -412,14 +403,10 @@ pub fn decode_jwt_claims(token: &str) -> Option<JwtClaims> {
     })
 }
 
-/// The auth `domain` recorded by the portal, mapped to a Site.
-pub fn site_of_token_set(tokens: &TokenSet) -> Site {
-    site_from_domain(&tokens.domain)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::account::site_from_domain;
     use serde_json::json;
 
     #[test]
@@ -428,7 +415,9 @@ mod tests {
         assert!(is_pending(&json!({"code": 1, "msg": "user is logging in"})));
         assert!(is_pending(&json!({"code": 1, "msg": "Waiting for login"})));
         assert!(!is_pending(&json!({"code": 0, "msg": "OK"})));
-        assert!(!is_pending(&json!({"code": 10001, "msg": "state is empty"})));
+        assert!(!is_pending(
+            &json!({"code": 10001, "msg": "state is empty"})
+        ));
     }
 
     #[test]
@@ -450,7 +439,7 @@ mod tests {
         assert_eq!(t.refresh_token, "ref");
         assert_eq!(t.expires_in, 3600);
         assert_eq!(t.domain, "www.workbuddy.ai");
-        assert_eq!(site_of_token_set(&t), Site::Global);
+        assert_eq!(site_from_domain(&t.domain), Site::Global);
     }
 
     #[test]
@@ -475,7 +464,8 @@ mod tests {
     #[test]
     fn decodes_keycloak_jwt() {
         // header {"alg":"RS256","typ":"JWT"}, payload {"email":"a@b.c","exp":1823857525,"sub":"sub-1"}
-        let payload = r#"{"email":"a@b.c","exp":1823857525,"sub":"sub-1","preferred_username":"user1"}"#;
+        let payload =
+            r#"{"email":"a@b.c","exp":1823857525,"sub":"sub-1","preferred_username":"user1"}"#;
         let p64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload);
         let token = format!("eyJhbGciOiJSUzI1NiJ9.{}.sig", p64);
         let claims = decode_jwt_claims(&token).unwrap();

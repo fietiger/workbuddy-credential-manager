@@ -98,7 +98,10 @@ fn load_index_unlocked() -> AppResult<AccountIndex> {
 pub fn add_account(account: Account) -> AppResult<()> {
     logger::log_info(
         "store",
-        &format!("Adding account id={} display={}", account.id, account.display),
+        &format!(
+            "Adding account id={} display={}",
+            account.id, account.display
+        ),
     );
     let key = account.dedupe_key();
     let idx = load_index()?;
@@ -273,9 +276,7 @@ fn find_matching(uid: Option<&str>, refresh_token: &str) -> AppResult<Option<Acc
                 return Ok(Some(acc));
             }
         }
-        if !refresh_token.is_empty()
-            && acc.refresh_token.plaintext() == Some(refresh_token)
-        {
+        if !refresh_token.is_empty() && acc.refresh_token.plaintext() == Some(refresh_token) {
             return Ok(Some(acc));
         }
     }
@@ -323,7 +324,10 @@ pub fn apply_token_set(acc: &mut Account, tokens: &TokenSet, expires_at_ms: i64)
                 );
             }
             if tokens.expires_in > 0 {
-                auth.insert("expiresIn".into(), serde_json::Value::from(tokens.expires_in));
+                auth.insert(
+                    "expiresIn".into(),
+                    serde_json::Value::from(tokens.expires_in),
+                );
                 auth.insert(
                     "refreshExpiresIn".into(),
                     serde_json::Value::from(tokens.expires_in),
@@ -479,7 +483,10 @@ pub fn import_accounts(content: &str) -> AppResult<ImportSummary> {
         acc.desktop_snapshot = item.desktop_snapshot.clone();
         acc.cli_snapshot = item.cli_snapshot.clone();
 
-        match find_matching(acc.uid.as_deref(), acc.refresh_token.plaintext().unwrap_or(""))? {
+        match find_matching(
+            acc.uid.as_deref(),
+            acc.refresh_token.plaintext().unwrap_or(""),
+        )? {
             Some(existing) => {
                 if acc.expires_at_ms > existing.expires_at_ms {
                     let mut merged = existing;
@@ -499,9 +506,7 @@ pub fn import_accounts(content: &str) -> AppResult<ImportSummary> {
                 let display = acc.display.clone();
                 match add_account(acc) {
                     Ok(()) => summary.imported.push(display),
-                    Err(AppError::AccountExists(_)) => {
-                        summary.skipped_duplicate.push(display)
-                    }
+                    Err(AppError::AccountExists(_)) => summary.skipped_duplicate.push(display),
                     Err(e) => return Err(e),
                 }
             }
