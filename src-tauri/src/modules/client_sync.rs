@@ -181,6 +181,7 @@ fn read_current_desktop(_kind: ClientKind, raw: &str) -> Option<CurrentAccountIn
 
     let encrypted = is_encrypted_value(auth.get("accessToken"));
     let domain = json_str(auth, "domain");
+    let site = site_from_domain(domain.as_deref().unwrap_or(""));
 
     let mut display = display_of_account(account);
     let phone = json_str(account, "phoneNumber");
@@ -202,7 +203,7 @@ fn read_current_desktop(_kind: ClientKind, raw: &str) -> Option<CurrentAccountIn
         display,
         phone,
         domain,
-        site: site_from_domain(domain.as_deref().unwrap_or("")),
+        site,
         expires_at_ms: auth
             .get("expiresAt")
             .and_then(|e| e.as_i64())

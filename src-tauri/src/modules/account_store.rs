@@ -7,14 +7,15 @@
 //!       <id>.json            -- one file per account (full credentials)
 
 use crate::error::{AppError, AppResult};
-use crate::models::account::{
-    Account, AccountExportItem, AccountExportResponse, AccountIndex, AccountSummary, Site,
-};
+use crate::models::account::{Account, AccountExportItem, AccountIndex, AccountSummary, Site};
 use crate::modules::client_sync::ClientKind;
 use crate::modules::logger;
 use crate::modules::wb_auth::{self, TokenSet};
 use std::path::PathBuf;
 use std::sync::RwLock;
+
+// Re-exported for the command layer's return types.
+pub use crate::models::account::AccountExportResponse;
 
 /// Global lock that serialises access to the account store on disk.
 static STORE_LOCK: RwLock<()> = RwLock::new(());

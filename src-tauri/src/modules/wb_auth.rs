@@ -311,10 +311,10 @@ pub fn extract_token_set(payload: &serde_json::Value) -> Option<TokenSet> {
     ];
 
     for c in candidates.into_iter().flatten() {
-        let access = string_of(c, &["accessToken", "bearerToken", "access_token", "token"]);
-        if access.is_empty() {
+        let Some(access) = string_of(c, &["accessToken", "bearerToken", "access_token", "token"])
+        else {
             continue;
-        }
+        };
         let refresh = string_of(c, &["refreshToken", "refresh_token"])
             .or_else(|| string_of(payload, &["refreshToken", "refresh_token"]))
             .unwrap_or_default();

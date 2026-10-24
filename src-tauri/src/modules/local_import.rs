@@ -424,7 +424,7 @@ fn scan_cli() -> Option<Candidate> {
     );
     account.uid = claims.as_ref().and_then(|c| c.sub.clone()).or_else(|| {
         // fall back to the desktop-file uid when the JWT lacks sub
-        current.uid.clone().filter(|u| !u.is_empty())
+        (!current.uid.is_empty()).then(|| current.uid.clone())
     });
     account.email = claims.as_ref().and_then(|c| c.email.clone());
     account.expires_at_ms = current.expires_at_ms;
