@@ -1,0 +1,143 @@
+name: Build & Release
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# The release job creates a GitHub release and uploads assets, which needs a
+# write-scoped token; the repo default is read-only.
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ── 1. Lint（仅提示，不阻断构建）──────────────────────────────────────────
+  lint:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf libssl-dev
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/
+            ~/.cargo/git/
+            src-tauri/target/
+          key: ${{ runner.os }}-lint-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      - name: Format check
+        continue-on-error: true
+        run: cd src-tauri && cargo fmt --all -- --check
+
+      - name: Clippy
+        continue-on-error: true
+        run: cd src-tauri && cargo clippy --all-targets -- -D warnings
+
+      - name: Unit tests
+        continue-on-error: true
+        run: cd src-tauri && cargo test --lib
+
+  # ── 2. Build（三平台，直接产出可执行文件）────────────────────────────────
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf libssl-dev
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/
+            ~/.cargo/git/
+            src-tauri/target/
+          key: ${{ runner.os }}-build-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build (Tauri CLI, production)
+        # Plain `cargo build` produces a dev-mode binary that tries to load
+        # http://localhost:1420 at runtime; the Tauri CLI build embeds the UI.
+        run: |
+          npm install -g @tauri-apps/cli@^2
+          tauri build --no-bundle
+
+      - name: Collect artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item src-tauri/target/release/workbuddy-credential-manager.exe dist/workbuddy-credential-manager-windows-x64.exe
+          Get-ChildItem dist
+
+      - name: Collect artifact (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          mkdir -p dist
+          cp src-tauri/target/release/workbuddy-credential-manager dist/workbuddy-credential-manager-linux-x64
+          chmod +x dist/workbuddy-credential-manager-linux-x64
+          ls -la dist
+
+      # macos-latest runners are Apple-silicon, so the binary is arm64.
+      - name: Collect artifact (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          mkdir -p dist
+          cp src-tauri/target/release/workbuddy-credential-manager dist/workbuddy-credential-manager-macos-arm64
+          chmod +x dist/workbuddy-credential-manager-macos-arm64
+          ls -la dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: workbuddy-credential-manager-${{ matrix.os }}
+          path: dist/*
+          if-no-files-found: error
+
+  # ── 3. Release（仅 tag 触发）─────────────────────────────────────────────
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: artifacts/**/*

@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WorkBuddy 账号管理器</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
+    .container { max-width: 860px; margin: 0 auto; padding: 24px; }
+    h1 { font-size: 1.4rem; margin-bottom: 4px; color: #fff; }
+    .subtitle { color: #888; font-size: 0.85rem; margin-bottom: 20px; }
+    .subtitle a { color: #818cf8; cursor: pointer; text-decoration: none; }
+    .subtitle a:hover { text-decoration: underline; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    button {
+      background: #4f46e5; color: #fff; border: none; border-radius: 6px;
+      padding: 8px 14px; font-size: 0.85rem; cursor: pointer; transition: background 0.15s;
+    }
+    button:hover { background: #6366f1; }
+    button.secondary { background: #374151; }
+    button.secondary:hover { background: #4b5563; }
+    button.danger { background: #7f1d1d; }
+    button.danger:hover { background: #dc2626; }
+    button.small { padding: 4px 10px; font-size: 0.75rem; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .status-bar {
+      background: #16213e; border: 1px solid #0f3460; border-radius: 8px;
+      padding: 10px 14px; margin-bottom: 18px; font-size: 0.78rem; color: #aaa;
+      display: flex; gap: 16px; flex-wrap: wrap;
+    }
+    .status-bar strong { color: #ccc; font-weight: 500; }
+    .status-bar a { color: #818cf8; cursor: pointer; }
+    .panel {
+      background: #16213e; border: 1px solid #0f3460; border-radius: 8px;
+      padding: 16px; margin-bottom: 18px;
+    }
+    .panel[hidden] { display: none; }
+    .panel h2 { font-size: 0.95rem; color: #fff; margin-bottom: 10px; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+    select, input[type="text"] {
+      background: #0f3460; border: 1px solid #1e40af; border-radius: 6px;
+      padding: 8px; color: #eee; font-size: 0.85rem;
+    }
+    textarea {
+      width: 100%; background: #0f3460; border: 1px solid #1e40af;
+      border-radius: 6px; padding: 8px; color: #eee; font-size: 0.8rem;
+      font-family: monospace; resize: vertical; margin-top: 8px;
+    }
+    .label { font-size: 0.75rem; color: #94a3b8; margin-top: 10px; }
+    .auth-url {
+      background: #0f3460; border-radius: 6px; padding: 10px;
+      font-size: 0.75rem; word-break: break-all; color: #94a3b8;
+      margin-top: 8px; cursor: pointer;
+    }
+    .msg { margin-top: 10px; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; }
+    .msg.success { color: #4ade80; }
+    .msg.error { color: #f87171; }
+    .msg.pending { color: #facc15; }
+    .msg.info { color: #93c5fd; }
+    .account-card {
+      background: #16213e; border: 1px solid #0f3460; border-radius: 8px;
+      padding: 14px 16px; margin-bottom: 12px;
+    }
+    .account-card .head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .display { font-weight: 600; font-size: 0.95rem; }
+    .meta { color: #888; font-size: 0.75rem; margin-top: 6px; line-height: 1.5; }
+    .badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+    .badge.site { background: #1e3a5f; color: #7dd3fc; }
+    .badge.src { background: #274d27; color: #a5dba5; }
+    .badge.enc { background: #4a3b0f; color: #fde047; }
+    .badge.expired { background: #7f1d1d; color: #fca5a5; }
+    .badge.valid { background: #14532d; color: #86efac; }
+    .badge.active { background: #4f46e5; color: #fff; }
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+    .empty { text-align: center; color: #555; padding: 40px; font-size: 0.9rem; }
+    .clients-section { margin-top: 22px; border: 1px solid #2b2b4d; border-radius: 8px; padding: 12px 14px; }
+    .clients-section h2 { font-size: 0.9rem; color: #ccc; margin-bottom: 8px; }
+    .client-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; font-size: 0.82rem; color: #ddd; border-top: 1px solid #1c2540; flex-wrap: wrap; }
+    .client-row:first-of-type { border-top: none; }
+    .client-badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; background: #274d27; color: #a5dba5; white-space: nowrap; }
+    .client-badge.off { background: #34344a; color: #999; }
+    .client-path { color: #666; font-size: 0.68rem; word-break: break-all; }
+    .overlay { position: fixed; inset: 0; z-index: 40; }
+    .overlay[hidden] { display: none; }
+    .backdrop { position: absolute; inset: 0; background: rgba(10, 10, 25, 0.62); }
+    .modal {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      background: #16213e; border: 1px solid #2b3d6e; border-radius: 10px;
+      width: min(720px, calc(100vw - 48px)); max-height: 82vh; overflow: auto;
+      padding: 18px 20px;
+    }
+    .modal h2 { font-size: 1rem; color: #fff; margin-bottom: 12px; }
+    .cand { border: 1px solid #1c2a52; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; display: flex; gap: 10px; align-items: flex-start; }
+    .cand input[type="checkbox"] { margin-top: 3px; }
+    .cand .c-info { flex: 1; }
+    .cand .c-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .cand .c-meta { color: #888; font-size: 0.72rem; margin-top: 4px; }
+    .cand.existing { opacity: 0.65; }
+    .modal-foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+    .toast {
+      position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+      background: #312e81; color: #fff; padding: 10px 18px; border-radius: 8px;
+      font-size: 0.82rem; z-index: 60; max-width: 80vw; word-break: break-all;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    .toast[hidden] { display: none; }
+    .spin { display: inline-block; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>WorkBuddy 账号管理器</h1>
+    <div class="subtitle">本地凭证收集与一键切换登录 · 纯本地运行，无代理、无中继、不上传任何数据</div>
+
+    <div class="status-bar" id="status-bar">加载中…</div>
+
+    <div class="btn-row">
+      <button id="btn-oauth">OAuth 登录添加</button>
+      <button id="btn-rtoken" class="secondary">导入 refresh token</button>
+      <button id="btn-local" class="secondary">一键导入本地账号</button>
+      <button id="btn-import" class="secondary">导入备份</button>
+      <button id="btn-export" class="secondary">导出备份</button>
+    </div>
+
+    <!-- OAuth panel -->
+    <div class="panel" id="oauth-panel" hidden>
+      <h2>OAuth 登录（WorkBuddy 插件授权）</h2>
+      <div class="row">
+        <span class="label" style="margin:0">站点：</span>
+        <select id="oauth-site">
+          <option value="global">国际版（workbuddy.ai）</option>
+          <option value="domestic">国内版（workbuddy.cn）</option>
+        </select>
+        <button id="oauth-start">生成登录链接</button>
+        <button id="oauth-copy" class="secondary" hidden>复制链接</button>
+        <button id="oauth-cancel" class="secondary" hidden>取消</button>
+      </div>
+      <div id="oauth-url-wrap" hidden>
+        <div class="label">登录链接（浏览器用的是它当前登录的 WorkBuddy 账号；如需换号，请先在浏览器里退出或使用无痕窗口）：</div>
+        <div class="auth-url" id="oauth-url" title="点击复制"></div>
+        <div class="label">链接不会自动打开：复制到本机或另一台机器的浏览器中打开并登录，本页面会自动轮询到结果。</div>
+      </div>
+      <div class="msg" id="oauth-msg"></div>
+    </div>
+
+    <!-- refresh token import panel -->
+    <div class="panel" id="rtoken-panel" hidden>
+      <h2>导入 refresh token</h2>
+      <div class="row">
+        <span class="label" style="margin:0">站点：</span>
+        <select id="rtoken-site">
+          <option value="global">国际版（workbuddy.ai）</option>
+          <option value="domestic">国内版（workbuddy.cn）</option>
+        </select>
+        <input type="text" id="rtoken-label" placeholder="备注名（可选，如邮箱）" style="flex:1; min-width:200px" />
+      </div>
+      <div class="label">refresh token（必填）</div>
+      <textarea id="rtoken-value" rows="3" placeholder="粘贴 refresh token"></textarea>
+      <div class="label">access token（可选，若是 JWT 可自动识别邮箱与过期时间）</div>
+      <textarea id="rtoken-access" rows="2" placeholder="粘贴 access token（可留空）"></textarea>
+      <div class="row">
+        <button id="rtoken-save">导入</button>
+        <span class="msg" id="rtoken-msg" style="margin:0"></span>
+      </div>
+    </div>
+
+    <!-- accounts -->
+    <div id="accounts"></div>
+
+    <!-- clients -->
+    <div class="clients-section">
+      <h2>本地客户端登录状态</h2>
+      <div id="clients">加载中…</div>
+    </div>
+  </div>
+
+  <!-- local import modal -->
+  <div class="overlay" id="import-overlay" hidden>
+    <div class="backdrop" id="import-backdrop"></div>
+    <div class="modal">
+      <h2>一键导入本地账号</h2>
+      <div class="label" style="margin-top:0">扫描 WorkBuddy 桌面端（含历史登录备份文件）与 CodeBuddy CLI。按 uid 去重；已在库中的账号仅在磁盘上凭证更新时显示「可更新」。</div>
+      <div id="import-cands" style="margin-top:12px">扫描中…</div>
+      <div class="msg" id="import-msg"></div>
+      <div class="modal-foot">
+        <button class="secondary" id="import-close">关闭</button>
+        <button id="import-run">导入选中</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- notes modal -->
+  <div class="overlay" id="notes-overlay" hidden>
+    <div class="backdrop" id="notes-backdrop"></div>
+    <div class="modal" style="width:min(480px, calc(100vw - 48px))">
+      <h2>备注</h2>
+      <input type="text" id="notes-input" style="width:100%" placeholder="给这个账号加个备注" />
+      <div class="modal-foot">
+        <button class="secondary" id="notes-cancel">取消</button>
+        <button id="notes-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- export modal -->
+  <div class="overlay" id="export-overlay" hidden>
+    <div class="backdrop" id="export-backdrop"></div>
+    <div class="modal" style="width:min(560px, calc(100vw - 48px))">
+      <h2>导出备份</h2>
+      <div class="label" style="margin-top:0">⚠️ 导出文件包含完整凭证（含 refresh token），请妥善保管，不要分享给他人。</div>
+      <div class="label">保存路径</div>
+      <div class="auth-url" id="export-path" style="cursor:default"></div>
+      <div class="msg" id="export-msg"></div>
+      <div class="modal-foot">
+        <button class="secondary" id="export-close">关闭</button>
+        <button class="secondary" id="export-choose">选择位置…</button>
+        <button id="export-save">导出</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- import backup modal -->
+  <div class="overlay" id="restore-overlay" hidden>
+    <div class="backdrop" id="restore-backdrop"></div>
+    <div class="modal" style="width:min(560px, calc(100vw - 48px))">
+      <h2>导入备份</h2>
+      <div class="label" style="margin-top:0">选择本应用导出的 JSON 备份文件。重复账号会跳过；磁盘上凭证更新时会更新库内账号。</div>
+      <div class="row">
+        <button class="secondary" id="restore-pick">选择文件…</button>
+        <span class="label" id="restore-file" style="margin:0"></span>
+        <input type="file" id="restore-input" accept=".json,application/json" style="display:none" />
+      </div>
+      <div class="msg" id="restore-msg"></div>
+      <div class="modal-foot">
+        <button class="secondary" id="restore-close">关闭</button>
+        <button id="restore-run" disabled>导入</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script>
+    const { invoke } = window.__TAURI__.core;
+    const $ = (id) => document.getElementById(id);
+    let oauthTimer = null;
+    let oauthState = null;
+    let notesTargetId = null;
+
+    // ── helpers ──────────────────────────────────────────────────────────
+    function toast(text, ms = 2600) {
+      const el = $('toast');
+      el.textContent = text;
+      el.hidden = false;
+      clearTimeout(el._t);
+      el._t = setTimeout(() => { el.hidden = true; }, ms);
+    }
+    function setMsg(id, kind, text) {
+      const el = $(id);
+      el.className = 'msg ' + kind;
+      el.textContent = text;
+      if (!text) el.textContent = '';
+    }
+    async function copyText(text) {
+      try { await navigator.clipboard.writeText(text); toast('已复制到剪贴板'); }
+      catch { toast('复制失败，请手动选择文本复制'); }
+    }
+    function fmtMs(ms) {
+      if (!ms) return '有效期未知';
+      const diff = ms - Date.now();
+      if (diff <= 0) return '已过期';
+      const days = Math.floor(diff / 86400000);
+      if (days >= 1) return `剩余约 ${days} 天`;
+      const hours = Math.floor(diff / 3600000);
+      return `剩余约 ${Math.max(hours, 1)} 小时`;
+    }
+    function fmtDate(ms) {
+      if (!ms) return '-';
+      return new Date(ms).toLocaleString();
+    }
+    function siteName(s) { return s === 'domestic' ? '国内版' : '国际版'; }
+
+    // ── status bar ───────────────────────────────────────────────────────
+    async function loadStatus() {
+      try {
+        const s = await invoke('get_status');
+        $('status-bar').innerHTML =
+          `<span>数据目录 <strong>${s.data_dir}</strong></span>` +
+          `<span>·</span><a id="open-logs">打开日志目录</a>`;
+        $('open-logs').onclick = () => invoke('open_log_dir');
+      } catch (e) {
+        $('status-bar').textContent = '状态加载失败：' + e;
+      }
+    }
+
+    // ── accounts ─────────────────────────────────────────────────────────
+    const CLIENT_LABEL = {
+      desktop_cn: 'WB 桌面端',
+      desktop_ai: 'WB AI 桌面端',
+      cli: 'CB CLI',
+    };
+    const CLIENT_FULL = {
+      desktop_cn: 'WorkBuddy 桌面端（国内）',
+      desktop_ai: 'WorkBuddy AI 桌面端（国际）',
+      cli: 'CodeBuddy CLI',
+    };
+
+    async function loadAccounts() {
+      let accounts;
+      try { accounts = await invoke('list_accounts'); }
+      catch (e) { $('accounts').innerHTML = `<div class="empty">账号列表加载失败：${e}</div>`; return; }
+
+      if (!accounts.length) {
+        $('accounts').innerHTML = '<div class="empty">还没有账号。用上方按钮 OAuth 登录、导入 refresh token 或一键导入本地账号。</div>';
+        return;
+      }
+
+      $('accounts').innerHTML = accounts.map(a => {
+        const badges = [
+          `<span class="badge site">${siteName(a.site)}</span>`,
+          `<span class="badge src">${a.source}</span>`,
+          a.encrypted ? '<span class="badge enc">加密信封</span>' : '',
+          a.expires_at_ms
+            ? (a.access_token_valid
+                ? `<span class="badge valid">${fmtMs(a.expires_at_ms)}</span>`
+                : '<span class="badge expired">已过期</span>')
+            : '',
+          ...a.active_in.map(c => `<span class="badge active">${CLIENT_LABEL[c]}</span>`),
+        ].filter(Boolean).join(' ');
+
+        const cliDisabled = a.encrypted ? 'disabled title="加密信封凭证无法写入 CLI"' : '';
+        const refreshDisabled = (!a.can_refresh) ? 'disabled title="没有可用的明文 refresh token"' : '';
+        const notes = a.notes ? `<div class="meta">备注：${escapeHtml(a.notes)}</div>` : '';
+        const email = a.email ? `<div class="meta">邮箱：${escapeHtml(a.email)}</div>` : '';
+        const phone = a.phone ? `<div class="meta">手机号：${escapeHtml(a.phone)}</div>` : '';
+
+        return `
+        <div class="account-card" data-id="${a.id}" data-notes="${escapeHtml(a.notes || '')}">
+          <div class="head">
+            <span class="display">${escapeHtml(a.display)}</span>
+            ${badges}
+          </div>
+          ${email}${phone}${notes}
+          <div class="meta">
+            access ${escapeHtml(a.access_token_masked)} · refresh ${escapeHtml(a.refresh_token_masked)}<br>
+            到期：${fmtDate(a.expires_at_ms)} · 添加：${fmtDate(a.created_at * 1000)}
+          </div>
+          <div class="actions">
+            <button class="small act-switch" data-target="desktop_cn" ${cliDisabled}>切到 WB 桌面端</button>
+            <button class="small act-switch" data-target="desktop_ai" ${cliDisabled}>切到 WB AI 桌面端</button>
+            <button class="small act-switch" data-target="cli" ${cliDisabled}>切到 CB CLI</button>
+            <button class="small secondary act-refresh" ${refreshDisabled}>刷新凭证</button>
+            <button class="small secondary act-notes">备注</button>
+            <button class="small danger act-delete">删除</button>
+          </div>
+        </div>`;
+      }).join('');
+
+      document.querySelectorAll('.act-switch').forEach(b => b.onclick = () => doSwitch(b));
+      document.querySelectorAll('.act-refresh').forEach(b => b.onclick = () => doRefresh(b));
+      document.querySelectorAll('.act-notes').forEach(b => b.onclick = () => doNotes(b));
+      document.querySelectorAll('.act-delete').forEach(b => b.onclick = () => doDelete(b));
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    async function doSwitch(btn) {
+      const card = btn.closest('.account-card');
+      const id = card.dataset.id;
+      const target = btn.dataset.target;
+      btn.disabled = true;
+      const orig = btn.textContent;
+      btn.textContent = '切换中…';
+      try {
+        const r = await invoke('activate_account', { id, target });
+        if (r.ok) toast(`${r.name}：${r.detail}`);
+        else toast(`${r.name} 切换失败：${r.detail}`);
+      } catch (e) {
+        toast('切换失败：' + e);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = orig;
+        loadAccounts();
+        loadClients();
+      }
+    }
+
+    async function doRefresh(btn) {
+      const card = btn.closest('.account-card');
+      const id = card.dataset.id;
+      btn.disabled = true;
+      btn.textContent = '刷新中…';
+      try {
+        const a = await invoke('refresh_account', { id });
+        toast(`凭证已刷新（${a.display}）`);
+      } catch (e) {
+        toast('刷新失败：' + e);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '刷新凭证';
+        loadAccounts();
+        loadClients();
+      }
+    }
+
+    function doNotes(btn) {
+      const card = btn.closest('.account-card');
+      notesTargetId = card.dataset.id;
+      $('notes-input').value = card.dataset.notes || '';
+      $('notes-overlay').hidden = false;
+      $('notes-input').focus();
+    }
+    $('notes-cancel').onclick = () => { $('notes-overlay').hidden = true; };
+    $('notes-backdrop').onclick = () => { $('notes-overlay').hidden = true; };
+    $('notes-save').onclick = async () => {
+      try {
+        await invoke('update_account_notes', { id: notesTargetId, notes: $('notes-input').value });
+        $('notes-overlay').hidden = true;
+        loadAccounts();
+      } catch (e) { toast('保存备注失败：' + e); }
+    };
+
+    async function doDelete(btn) {
+      const card = btn.closest('.account-card');
+      const id = card.dataset.id;
+      const name = card.querySelector('.display').textContent;
+      if (!confirm(`确定删除账号「${name}」？\n\n这只删除管理器里保存的凭证，不影响客户端当前的登录。`)) return;
+      try {
+        await invoke('delete_account', { id });
+        toast('已删除');
+        loadAccounts();
+        loadClients();
+      } catch (e) { toast('删除失败：' + e); }
+    }
+
+    // ── clients ──────────────────────────────────────────────────────────
+    async function loadClients() {
+      let clients;
+      try { clients = await invoke('list_clients'); }
+      catch (e) { $('clients').textContent = '加载失败：' + e; return; }
+
+      $('clients').innerHTML = clients.map(c => {
+        const badge = c.installed
+          ? '<span class="client-badge">已安装</span>'
+          : '<span class="client-badge off">未安装</span>';
+        let cur = '未登录 / 未捕获';
+        if (c.current) {
+          const cu = c.current;
+          const parts = [
+            `当前：${escapeHtml(cu.display)}`,
+            siteName(cu.site === 'domestic' ? 'domestic' : 'global'),
+            fmtMs(cu.expires_at_ms),
+          ];
+          if (cu.encrypted) parts.push('凭证已加密');
+          cur = parts.join(' · ');
+        }
+        return `<div class="client-row">
+          <span><strong>${c.name}</strong> ${badge}</span>
+          <span>${cur}</span>
+          <span class="client-path">${c.path || ''}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // ── OAuth ────────────────────────────────────────────────────────────
+    $('btn-oauth').onclick = () => {
+      $('oauth-panel').hidden = !$('oauth-panel').hidden;
+      $('rtoken-panel').hidden = true;
+    };
+    $('btn-rtoken').onclick = () => {
+      $('rtoken-panel').hidden = !$('rtoken-panel').hidden;
+      $('oauth-panel').hidden = true;
+    };
+
+    $('oauth-start').onclick = async () => {
+      stopPolling();
+      const site = $('oauth-site').value;
+      setMsg('oauth-msg', 'info', '正在生成登录链接…');
+      try {
+        const s = await invoke('oauth_start', { site });
+        oauthState = s.state;
+        $('oauth-url').textContent = s.auth_url;
+        $('oauth-url').onclick = () => copyText(s.auth_url);
+        $('oauth-copy').onclick = () => copyText(s.auth_url);
+        $('oauth-url-wrap').hidden = false;
+        $('oauth-copy').hidden = false;
+        $('oauth-cancel').hidden = false;
+        setMsg('oauth-msg', 'pending', '⏳ 等待你在浏览器中完成登录（每 5 秒轮询一次，会话 30 分钟有效）…');
+        startPolling();
+      } catch (e) {
+        setMsg('oauth-msg', 'error', '发起登录失败：' + e);
+      }
+    };
+
+    function startPolling() {
+      stopPolling();
+      oauthTimer = setInterval(async () => {
+        if (!oauthState) { stopPolling(); return; }
+        try {
+          const r = await invoke('oauth_poll', { state: oauthState });
+          if (r.status === 'success') {
+            stopPolling();
+            setMsg('oauth-msg', 'success', '✅ ' + r.message);
+            toast(r.message);
+            $('oauth-cancel').hidden = true;
+            loadAccounts();
+            loadClients();
+          }
+        } catch (e) {
+          stopPolling();
+          setMsg('oauth-msg', 'error', String(e));
+          loadAccounts();
+        }
+      }, 5000);
+    }
+    function stopPolling() {
+      if (oauthTimer) { clearInterval(oauthTimer); oauthTimer = null; }
+      oauthState = null;
+    }
+    $('oauth-cancel').onclick = () => {
+      stopPolling();
+      setMsg('oauth-msg', 'info', '已取消轮询（链接本身仍有效，可重新点击「生成登录链接」继续）。');
+      $('oauth-cancel').hidden = true;
+    };
+
+    // ── refresh token import ─────────────────────────────────────────────
+    $('rtoken-save').onclick = async () => {
+      const refresh_token = $('rtoken-value').value.trim();
+      if (!refresh_token) { setMsg('rtoken-msg', 'error', 'refresh token 不能为空'); return; }
+      const site = $('rtoken-site').value;
+      const access = $('rtoken-access').value.trim();
+      const label = $('rtoken-label').value.trim();
+      try {
+        const a = await invoke('import_refresh_token', {
+          site, refreshToken: refresh_token,
+          accessToken: access || null, label: label || null,
+        });
+        setMsg('rtoken-msg', 'success', `✅ 已导入：${a.display}`);
+        $('rtoken-value').value = '';
+        $('rtoken-access').value = '';
+        loadAccounts();
+        loadClients();
+      } catch (e) {
+        setMsg('rtoken-msg', 'error', String(e));
+      }
+    };
+
+    // ── local import ─────────────────────────────────────────────────────
+    $('btn-local').onclick = async () => {
+      $('import-overlay').hidden = false;
+      $('import-msg').className = 'msg';
+      $('import-msg').textContent = '';
+      $('import-cands').textContent = '扫描中…';
+      try {
+        const cands = await invoke('import_local_preview');
+        renderCandidates(cands);
+      } catch (e) {
+        $('import-cands').textContent = '扫描失败：' + e;
+      }
+    };
+
+    function renderCandidates(cands) {
+      if (!cands.length) {
+        $('import-cands').innerHTML = '<div class="empty" style="padding:20px">没有发现可导入的本地账号。确认 WorkBuddy 桌面端或 CodeBuddy CLI 已在本机登录过。</div>';
+        return;
+      }
+      $('import-cands').innerHTML = cands.map((c, i) => {
+        const checked = (!c.existing || c.newer) ? 'checked' : '';
+        const live = c.live ? ' <span class="badge valid">当前登录</span>' : '';
+        const upd = c.newer ? ' <span class="badge pending">可更新</span>' : (c.existing ? ' <span class="badge site">已在库中</span>' : '');
+        const enc = c.encrypted ? ' <span class="badge enc">加密信封</span>' : '';
+        return `<label class="cand ${c.existing ? 'existing' : ''}">
+          <input type="checkbox" class="cand-check" data-key="${escapeHtml(c.key)}" ${checked} />
+          <span class="c-info">
+            <span class="c-head">
+              <strong>${escapeHtml(c.display)}</strong>
+              <span class="badge site">${siteName(c.site)}</span>
+              <span class="badge src">${c.source}</span>${live}${upd}${enc}
+            </span>
+            <span class="c-meta">来源：${escapeHtml(c.origin)} · ${fmtMs(c.expires_at_ms)}${c.uid ? ' · uid ' + escapeHtml(c.uid.slice(0, 8)) : ''}</span>
+          </span>
+        </label>`;
+      }).join('');
+    }
+
+    $('import-close').onclick = () => { $('import-overlay').hidden = true; loadAccounts(); loadClients(); };
+    $('import-backdrop').onclick = () => { $('import-overlay').hidden = true; loadAccounts(); loadClients(); };
+    $('import-run').onclick = async () => {
+      const keys = [...document.querySelectorAll('.cand-check')]
+        .filter(c => c.checked)
+        .map(c => c.dataset.key);
+      $('import-run').disabled = true;
+      setMsg('import-msg', 'info', '导入中…');
+      try {
+        const s = await invoke('import_local_accounts', { selected: keys });
+        const lines = [];
+        if (s.imported.length) lines.push(`新导入 ${s.imported.length} 个：${s.imported.join('、')}`);
+        if (s.updated.length) lines.push(`更新 ${s.updated.length} 个：${s.updated.join('、')}`);
+        if (s.skipped_duplicate.length) lines.push(`跳过重复 ${s.skipped_duplicate.length} 个`);
+        if (s.failed.length) lines.push(`失败 ${s.failed.length} 个：${s.failed.join('；')}`);
+        if (!lines.length) lines.push('没有可导入的账号');
+        setMsg('import-msg', s.failed.length ? 'error' : 'success', lines.join('\n'));
+        loadAccounts();
+        loadClients();
+      } catch (e) {
+        setMsg('import-msg', 'error', String(e));
+      } finally {
+        $('import-run').disabled = false;
+      }
+    };
+
+    // ── export ───────────────────────────────────────────────────────────
+    let exportPath = '';
+    $('btn-export').onclick = async () => {
+      $('export-overlay').hidden = false;
+      setMsg('export-msg', '', '');
+      exportPath = await invoke('default_export_path');
+      $('export-path').textContent = exportPath;
+    };
+    $('export-close').onclick = () => { $('export-overlay').hidden = true; };
+    $('export-backdrop').onclick = () => { $('export-overlay').hidden = true; };
+    $('export-choose').onclick = async () => {
+      try {
+        const chosen = await invoke('choose_export_path', { currentPath: exportPath });
+        if (chosen) { exportPath = chosen; $('export-path').textContent = chosen; }
+      } catch (e) { setMsg('export-msg', 'error', String(e)); }
+    };
+    $('export-save').onclick = async () => {
+      try {
+        const data = await invoke('export_accounts');
+        const saved = await invoke('save_export_file', {
+          content: JSON.stringify(data, null, 2), path: exportPath,
+        });
+        setMsg('export-msg', 'success', '✅ 已导出：' + saved);
+      } catch (e) { setMsg('export-msg', 'error', String(e)); }
+    };
+
+    // ── restore (import backup) ──────────────────────────────────────────
+    let restoreContent = null;
+    $('btn-import').onclick = () => {
+      $('restore-overlay').hidden = false;
+      restoreContent = null;
+      $('restore-file').textContent = '';
+      setMsg('restore-msg', '', '');
+      $('restore-run').disabled = true;
+    };
+    $('restore-close').onclick = () => { $('restore-overlay').hidden = true; };
+    $('restore-backdrop').onclick = () => { $('restore-overlay').hidden = true; };
+    $('restore-pick').onclick = () => $('restore-input').click();
+    $('restore-input').onchange = async (event) => {
+      const file = event.target.files[0];
+      event.target.value = '';
+      if (!file) return;
+      try {
+        restoreContent = await file.text();
+        $('restore-file').textContent = file.name;
+        $('restore-run').disabled = false;
+        setMsg('restore-msg', '', '');
+      } catch (e) {
+        setMsg('restore-msg', 'error', '读取文件失败：' + e);
+      }
+    };
+    $('restore-run').onclick = async () => {
+      if (restoreContent == null) return;
+      try {
+        const s = await invoke('import_accounts_json', { content: restoreContent });
+        const lines = [];
+        if (s.imported.length) lines.push(`新导入 ${s.imported.length} 个：${s.imported.join('、')}`);
+        if (s.updated.length) lines.push(`更新 ${s.updated.length} 个：${s.updated.join('、')}`);
+        if (s.skipped_duplicate.length) lines.push(`跳过重复 ${s.skipped_duplicate.length} 个`);
+        if (s.skipped_invalid) lines.push(`无效条目 ${s.skipped_invalid} 个`);
+        if (!lines.length) lines.push('备份中没有可导入的账号');
+        setMsg('restore-msg', 'success', lines.join('\n'));
+        loadAccounts();
+        loadClients();
+      } catch (e) { setMsg('restore-msg', 'error', String(e)); }
+    };
+
+    // ── boot ─────────────────────────────────────────────────────────────
+    loadStatus();
+    loadAccounts();
+    loadClients();
+  </script>
+</body>
+</html>
