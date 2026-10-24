@@ -412,7 +412,7 @@ mod tests {
     #[test]
     fn pending_detection() {
         assert!(is_pending(&json!({"code": 11217, "msg": "x"})));
-        assert!(is_pending(&json!({"code": 1, "msg": "user is logging in"})));
+        assert!(is_pending(&json!({"code": 1, "msg": "user login processing"})));
         assert!(is_pending(&json!({"code": 1, "msg": "Waiting for login"})));
         assert!(!is_pending(&json!({"code": 0, "msg": "OK"})));
         assert!(!is_pending(
